@@ -1,0 +1,459 @@
+---
+title: "SNR"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# 0 Settings
+```{r}
+# List the required directories!
+# DONE
+# req.files.dir <- c("E:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180616/01_APEX/01_TOC_Reflectance/01_Single_lines",
+#                    "E:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180731/01_APEX/01_TOC_Reflectance/01_Single_lines",
+#                    "E:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180731/01_APEX/01_TOC_Reflectance/01_Single_lines")
+# req.files.dir <- c("E:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180718/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+#                    "E:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic")
+# req.files.dir <- c("E:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic")
+# req.files.dir <- c("E:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180702/01_APEX/02_TOC_Reflectance")
+# req.files.dir <- c("E:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines") #remove file 4
+# req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Jülich",
+#                    "E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Selhausen")
+# req.files.dir <- c("E:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic")
+# req.files.dir <- c("E:/FLEXsense/09_Switzerland_Greifensee/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")
+# req.files.dir <- c("E:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")
+# req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines") #remove file 1
+# req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")  #code takes about 6 days to run
+
+# Set your working directory containing a folder for exported files!
+# setwd('C:/Users/britta themann/Documents/SNR_Calculation/')
+setwd('C:/Users/Britta Themann/Documents/SNR_Calculation/')
+
+# Give name of intended export folder in the working directory!
+export.folder <- "export/"
+
+# How many pixels should be included for the local mean (LM) and standard deviation (LSD) calculations? (E.g. for 8x8, put blocksize=8!)
+# blocksize = 8
+blocksize.list <- list(4,5,6,7,8)
+
+# How many bins should the image data (LM & LSD) be divided into?
+bin.no = 200
+
+# Are individual plots for Noise and SNR analysis required? If so, put TRUE!
+ind.plots.needed = TRUE
+
+# Are individual csv files for each image file needed? If so, put TRUE! Else only one csv per location is exported.
+ind.csv.needed = TRUE
+```
+
+# 1 Preparation
+```{r}
+# install packages (only required once)
+# install.packages("raster")
+# install.packages("rgdal")
+# install.packages("stringr")
+# install.packages("ggplot2")
+# install.packages("reshape2")
+# install.packages("svglite")
+# install.packages("gridExtra")
+# install.packages("lemon")
+# install.packages("parallel")
+# install.packages("doParallel")
+# install.packages("foreach")
+
+# load packages
+library(raster)
+library(rgdal)
+library(stringr)
+library(ggplot2)
+library(reshape2)
+library(svglite)
+library(gridExtra)
+library(lemon)
+library(parallel)
+library(doParallel)
+library(foreach)
+```
+
+# 2 Noise/SNR Calculation Function per  Layer
+```{r}
+# function that defines what is done to each layer of each image file
+myfunc <- function(layer.no){
+  # tryCatch({ # skip defective layers # DOES NOT WORK INSTEAD OF FILE TRY CATCH
+  r <- subset(s,layer.no)
+        
+    # get band and wavelength info
+    b <- paste("Band",layer.no)
+    # cat("\nFile",file.no,"of",length(req.files),"-- Layer",layer.no,"of",nlayers(s)) # show progress ONLY WORKS IN REGULAR LOOP NOT FUNCTION
+    if (str_detect(file,".bsq",negate=FALSE)){
+      wl <- str_sub(names(r),-9,-2) #if bsq file
+    }else{
+      wl <- substr(names(r[[1]]),2,9) #if img file
+      }
+    wl <- as.numeric(wl)*1000 # converted to nm for graphs
+  
+    # declare NAs
+    if(sensor=="HyPlant_DUAL"){
+      r[ r[] <= 0  ] <- NA
+    }else{
+      r[ r[] >= 0.986  ] <- NA
+    }
+    # print(r)
+    # plot(r)
+    # title(main=paste(b,"  ",wl,"nm"))
+
+    # divide image into blocks and calculate local means (LM)
+    r.mean <- aggregate(r, fact=blocksize, fun=mean, expand=TRUE, na.rm=TRUE)
+    print(r.mean)
+    plot(r.mean)
+    title(main=paste(b,"  ",wl,"nm","   LM"))
+    
+    # divide image into blocks and calculate local standard deviations (LSD)
+    r.sd <- aggregate(r, fact=blocksize, fun=sd, expand=TRUE, na.rm=TRUE)
+    # print(r.sd)
+    # plot(r.sd)
+    # title(main=paste(b,"  ",wl,"nm","   LSD"))
+    
+    # calculate global mean signal
+    signal.mean <- cellStats(r, stat='mean', na.rm=TRUE)
+    
+    # calculate mean,min and max of local LSDs
+    r.sd.mean <- cellStats(r.sd, stat='mean', na.rm=TRUE)
+    r.sd.min <- cellStats(r.sd, stat='min', na.rm=TRUE)
+    r.sd.max <- cellStats(r.sd, stat='max', na.rm=TRUE)
+    # cat("\nstd mean:",r.sd.mean,"\nstd min:",r.sd.min,"\nstd max:",r.sd.max,"\n\n")
+    
+    # equal binning of LSDs
+      # lower bin (classification) boundaries
+    lower <- seq(r.sd.min, r.sd.max, by = (r.sd.max - r.sd.min)/(bin.no-1))
+      # upper bin (classification) boundaries
+    upper <- seq(r.sd.min, r.sd.max, by = (r.sd.max - r.sd.min)/(bin.no-1))[-1] 
+    upper[[bin.no]] <- ceiling(r.sd.max)
+    class <- seq(1,bin.no)
+      # create classification matrix
+    class.df <- data.frame("lower"=lower,"upper"=upper,"class"=class)
+    class.m <- as.matrix(class.df)
+      # classify raster
+    r.sd.class <- reclassify(r.sd,class.m, right= FALSE)
+    # r.sd.class
+    # plot(r.sd.class)
+    # title(main=paste(b,"  ",wl,"nm","   Binned"))
+    
+    # count the number of blocks per bin
+    # barplot(r.sd.class)
+    count.df <- as.data.frame(freq(r.sd.class))
+      # include NAs in class.df for merging with count.df
+    class.df$center <- lower+((upper-lower)/2)
+    na.line <- c(NA,NA,NA,NA)
+    class.df <- rbind(class.df,na.line)
+      # merge class count with class dataframe
+    colnames(count.df) <- c("class","count")
+    class.df <- merge(class.df, count.df, by.x = "class", by.y = "class")
+    class.df <- na.omit(class.df)
+    
+    # identify the most populated LSD bin = global mean noise
+    noise.mean <- class.df[class.df$count %in% max(class.df$count),]$center[1] #[1] in case of multiple most populated classes
+    
+    # calculate SNR (global mean signal/global mean noise)
+    snr <- signal.mean/noise.mean
+    
+    # report and store results
+    # cat(b,"\nwavelength:",wl,"\nsignal mean:",signal.mean,"\nnoise mean:",noise.mean,"\nSNR:",snr,"\n\n")
+    result <- data.frame("Location"=location,"Data.Type"=data.type,"Date"=date,"Sensor"=sensor,"Product"=product,"File.Type"=file.type, "File"=filename,
+                          "Band"=b, "Wavelength"=wl, "Signal"= signal.mean, "Noise"= noise.mean, "SNR"=snr) # wavelength in nm
+  # }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!\n",filename,"\nLayer No.",layer.no,"\n")}) # skip defective layers # DOES NOT WORK INSTEAD OF FILE TRY CATCH
+}
+```
+
+# 3 SNR Calculation
+```{r}
+system.time({
+  # initiate list to store result.df for each blocksize
+  blocksize.result.df.list <- list()
+
+  # # loop through blocksizes
+  for (bsize.no in 1:length(blocksize.list)){
+  blocksize <- blocksize.list[[bsize.no]]
+  # bsize.no <- 6
+  
+    # create a list of required files including their paths
+    for(dir.no in 1:length(req.files.dir)){
+      if (dir.no==1){
+        req.files <- list.files(req.files.dir[dir.no],recursive = TRUE, pattern ="bsq$|img$", full.name= TRUE)
+      }
+        req.files <-  append(req.files,list.files(req.files.dir[dir.no],recursive = TRUE, pattern ="bsq$|img$", full.name= TRUE))
+    }
+    req.files <- unique(req.files)# remove doubles (problem with APEX)
+    
+    # file subset -- for testing only
+    # req.files <- req.files[1:2]
+    
+    # initiate storage list for result dataframes
+    result.df.list <- list()
+    
+    #----- remove defective file if necessary ----#
+    # req.files <- req.files[-1]
+    #---------------------------------------------#
+      
+    # load data
+    for (file in req.files){
+      file.no <- which(file == req.files)
+      cat("\nFile",file.no,"of",length(req.files),"with a blocksize of", blocksize,"pixels.")
+      tryCatch({ # skip defective files
+    
+        # extract information from file path
+        info <- unlist(strsplit(file, "/"), recursive = TRUE, use.names = TRUE)
+        location <- substring(info[3],4,nchar(info[3]))
+        data.type <- substring(info[4],4,nchar(info[4]))
+        date <- info[5]
+        sensor <- substring(info[6],4,nchar(info[6]))
+        product <- substring(info[7],4,nchar(info[7]))
+        if(str_detect(file,"04_Germany_CKA/03_Airborne_data/20180702/01_APEX")){
+          file.type <- NA
+          filename <- info[8]
+        }else{
+          file.type <- substring(info[8],4,nchar(info[8]))
+          filename <- info[9]
+        }
+        
+        # s <- stack(file)      
+        s <- brick(file)
+        # print(s)
+        if(sensor=="HyPlant_DUAL"){plotRGB(s,r=172,g=111,b=70, stretch="lin")}else{plotRGB(s,r=47,g=18,b=8, stretch="lin")}
+        
+        # initiate storage data frame for results
+        result.df <- data.frame("Location"=NA,"Data.Type"=NA,"Date"=NA,"Sensor"=NA,"Product"=NA,"File.Type"=NA, "File"=NA,
+                                "Band"=NA, "Wavelength"=NA, "Signal"= NA, "Noise"= NA,"SNR"= NA) # wavelength in nm
+        
+        # subset layers -- for testing only
+        # s <- subset(s,102:104)
+        
+        # go through layers per image raster file using 7 of the 8 cores 
+        mylist <- 1:nlayers(s)
+        nCores <- detectCores(logical = TRUE) - 1
+        cl <- makeCluster(nCores)
+        registerDoParallel(cl)
+        # getDoParRegistered()# Check properties
+        # getDoParWorkers()# Check properties
+        result <- foreach(i= mylist,
+                          .combine = list,
+                          .multicombine = TRUE,
+                          .maxcombine = nlayers(s),
+                          .export = c("s","file.no","file","sensor"),
+                          .packages = c("raster", "rgdal","stringr","lemon")) %dopar% {myfunc(i)} # FUNCTIONAL !!!!! for max 100 layers, list otherwise too long
+        stopCluster(cl)
+        result.df <- do.call("rbind", result)
+        
+        # convert Wavelengths and SNRs to numeric
+        result.df$Wavelength <- as.numeric(result.df$Wavelength)
+        result.df$Signal <- as.numeric(result.df$Signal)
+        result.df$Noise <- as.numeric(result.df$Noise)
+        result.df$SNR <- as.numeric(result.df$SNR)
+        
+        # store result data frame per file
+        result.df.list[[file.no]] <- result.df
+        dev.off()
+      }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!",filename,"\n")}) # skip defective files
+        
+    }
+    
+    # combine results from the same location and sensor into one dataframe
+    file.counter <-0
+    blocksize.result <- NA
+    for (file.no in 1:length(result.df.list)){
+      tryCatch({
+        if(is.na(blocksize.result)){
+          blocksize.result <- result.df.list[[file.no]]
+        }else{
+          blocksize.result <- rbind(blocksize.result,result.df.list[[file.no]])
+        }
+        file.counter <- file.counter + 1
+      }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!\n")}) # skip defective files
+    }
+    
+    # write inidivual blocksize results to disc
+    dir.create(paste0(export.folder,location,"_",sensor))
+    result.folder.dir <- paste0(export.folder,location,"_",sensor,"/")
+    write.csv(blocksize.result,file = paste0(result.folder.dir,"SNR_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".csv"),row.names=FALSE)
+    
+    # print status to console
+    cat('\n',file.counter,"image file(s) from the",sensor,"sensor over",location,"have been combined into one dataframe!\n")
+    
+    
+    # VISUALISATION 
+    
+    # create signal plot
+    sig.plot <- ggplot() +
+      geom_line(data = blocksize.result, aes(x=Wavelength, y=Signal, group=File, color=File), size=1)+
+      theme_bw()+
+      theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+      guides(color=guide_legend(ncol=1))+
+      labs(title = paste0("Signal\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "Signal [-]")+
+      guides(color=guide_legend(ncol=1))
+    sig.plot
+      
+    # create noise plot
+    noise.plot <- ggplot() +
+      geom_line(data = blocksize.result, aes(x=Wavelength, y=Noise, group=File, color=File), size=1)+
+      theme_bw()+
+      theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+      guides(color=guide_legend(ncol=1))+
+      labs(title = paste0("Noise ",blocksize,"px\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "Noise [-]")+
+      guides(color=guide_legend(ncol=1))
+    noise.plot
+      
+    # create snr plot
+    snr.plot <- ggplot() +
+      geom_line(data = blocksize.result, aes(x=Wavelength, y=SNR, group=File, color=File), size=1)+
+      theme_bw()+
+      theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+      guides(color=guide_legend(ncol=1))+
+      labs(title = paste0("Signal-to-Noise-Ratio (SNR) ",blocksize,"px\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "SNR [-]")+
+      guides(color=guide_legend(ncol=1))
+    snr.plot
+    
+    # write plots to disc if required
+    if(ind.plots.needed){
+
+      # noise plot
+      ggsave(file=paste0(result.folder.dir,"noise_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".svg"), 
+               plot=noise.plot, width=15, height=5)
+      ggsave(file=paste0(result.folder.dir,"noise_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".pdf"), 
+             plot=noise.plot, width=15, height=5)
+      png(paste0(result.folder.dir,"noise_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".png"), width = 900, height = 300)
+      print({noise.plot})
+      dev.off()
+      
+      # SNR plot
+      ggsave(file=paste0(result.folder.dir,"snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".svg"), 
+             plot=snr.plot, width=15, height=5)
+      ggsave(file=paste0(result.folder.dir,"snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".pdf"), 
+             plot=snr.plot, width=15, height=5)
+      png(paste0(result.folder.dir,"snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".png"), width = 900, height = 300)
+      print({snr.plot})
+      dev.off()
+    }
+  
+    # combine plots
+    sig.noise.snr.plot <- grid_arrange_shared_legend(sig.plot,noise.plot, snr.plot, nrow = 3, ncol= 1, position = "right")
+    sig.noise.snr.plot
+    
+    ggsave(file=paste0(result.folder.dir,"sig_noise_snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".svg"), 
+             plot=sig.noise.snr.plot, width=15, height=15)
+    ggsave(file=paste0(result.folder.dir,"sig_noise_snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".pdf"), 
+           plot=sig.noise.snr.plot, width=15, height=15)
+    # png(paste0(result.folder.dir,"sig_noise_snr_plot_",blocksize,"x",blocksize,"_",bin.no,"bins_",location,"_",sensor,".png"), width = 1500, height = 1500)
+    # print({sig.noise.snr.plot})
+    # dev.off() # EMPTY
+    
+    # add location result per blocksize to list
+    blocksize.result.df.list[[bsize.no]] <- blocksize.result  
+  }
+  
+  # combine results from different blocksizes into one dataframe
+    # take universal columns from first blocksize
+  final.result <- blocksize.result.df.list[[1]][,c("Location","Data.Type","Date","Sensor","Product","File.Type","File","Band","Wavelength","Signal")] 
+    # add noise and snr results per blocksize
+  final.result$`Noise 4px`<- blocksize.result.df.list[[1]]$Noise
+  final.result$`Noise 5px`<- blocksize.result.df.list[[2]]$Noise
+  final.result$`Noise 6px`<- blocksize.result.df.list[[3]]$Noise
+  final.result$`Noise 7px`<- blocksize.result.df.list[[4]]$Noise
+  final.result$`Noise 8px`<- blocksize.result.df.list[[5]]$Noise
+  final.result$`SNR 4px`<- blocksize.result.df.list[[1]]$SNR
+  final.result$`SNR 5px`<- blocksize.result.df.list[[2]]$SNR
+  final.result$`SNR 6px`<- blocksize.result.df.list[[3]]$SNR
+  final.result$`SNR 7px`<- blocksize.result.df.list[[4]]$SNR
+  final.result$`SNR 8px`<- blocksize.result.df.list[[5]]$SNR
+  for (row in 1:nrow(final.result)){
+    final.result$`Noise mean`[row]<- mean(final.result$`Noise 4px`[row],final.result$`Noise 5px`[row],final.result$`Noise 6px`[row],
+                                   final.result$`Noise 7px`[row],final.result$`Noise 8px`[row],na.rm = TRUE)
+    final.result$`SNR mean`[row]<- mean(final.result$`SNR 4px`[row],final.result$`SNR 5px`[row],final.result$`SNR 6px`[row],
+                                   final.result$`SNR 7px`[row],final.result$`SNR 8px`[row],na.rm = TRUE)
+  }
+  
+  # write csv to disc
+  write.csv(final.result,file = paste0(result.folder.dir,"SNR_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".csv"),row.names=FALSE)
+  
+  
+  ## VISUALISATION
+  
+  # create signal plot
+  sig.plot <- ggplot() +
+    geom_line(data = final.result, aes(x=Wavelength, y=Signal, group=File, color=File), size=1)+
+    theme_bw()+
+    theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+    guides(color=guide_legend(ncol=1))+
+    labs(title = paste0("Signal\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "Signal [-]")+
+    guides(color=guide_legend(ncol=1))
+  sig.plot
+
+  # create noise plot
+  noise.plot.mean <- ggplot() +
+    geom_line(data = final.result, aes(x=Wavelength, y=`Noise mean`, group=File, color=File), size=1)+
+    theme_bw()+
+    theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+    guides(color=guide_legend(ncol=1))+
+    labs(title = paste0("Mean Noise 4/5/6/7/8px\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "Noise [-]")+
+    guides(color=guide_legend(ncol=1))
+  noise.plot.mean
+  
+  # create snr plot
+  snr.plot.mean <- ggplot() +
+    geom_line(data = final.result, aes(x=Wavelength, y=`SNR mean`, group=File, color=File), size=1)+
+    theme_bw()+
+    theme(plot.title = element_text(size=14, face="bold",hjust = 0.5))+
+    guides(color=guide_legend(ncol=1))+
+    labs(title = paste0("Mean Signal-to-Noise-Ratio (SNR) 4/5/6/7/8px\n",location," (",sensor,")"),x = "Wavelength [nm]",y = "SNR [-]")+
+    guides(color=guide_legend(ncol=1))
+  snr.plot.mean
+  
+  # combine plots
+  sig.noise.snr.plot.mean <- grid_arrange_shared_legend(sig.plot,noise.plot.mean, snr.plot.mean, nrow = 3, ncol= 1, position = "right")
+  sig.noise.snr.plot.mean
+  
+  # write plots to disc if required
+  if(ind.plots.needed){
+    
+    # noise plot
+    ggsave(file=paste0(result.folder.dir,"noise_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".svg"), 
+             plot=noise.plot.mean, width=15, height=5)
+    ggsave(file=paste0(result.folder.dir,"noise_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".pdf"), 
+           plot=noise.plot.mean, width=15, height=5)
+    png(paste0(result.folder.dir,"noise_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".png"), width = 900, height = 300)
+    print({noise.plot.mean})
+    dev.off()
+    
+    # SNR plot
+    ggsave(file=paste0(result.folder.dir,"snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".svg"), 
+           plot=snr.plot.mean, width=15, height=5)
+    ggsave(file=paste0(result.folder.dir,"snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".pdf"), 
+           plot=snr.plot.mean, width=15, height=5)
+    png(paste0(result.folder.dir,"snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".png"), width = 900, height = 300)
+    print({snr.plot.mean})
+    dev.off()
+  }
+  
+  # write plots to disc
+    # signal plot
+  ggsave(file=paste0(result.folder.dir,"sig_plot_",location,"_",sensor,".svg"), 
+           plot=sig.plot, width=15, height=5)
+  ggsave(file=paste0(result.folder.dir,"sig_plot_",location,"_",sensor,".pdf"), 
+         plot=sig.plot, width=15, height=5)
+  png(paste0(result.folder.dir,"sig_plot_",location,"_",sensor,".png"), width = 900, height = 300)
+  print({sig.plot})
+  dev.off()
+  
+    # combined plots
+  ggsave(file=paste0(result.folder.dir,"sig_noise_snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".svg"),
+           plot=sig.noise.snr.plot.mean, width=15, height=15)
+  ggsave(file=paste0(result.folder.dir,"sig_noise_snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".pdf"),
+         plot=sig.noise.snr.plot.mean, width=15, height=15)
+  # png(paste0(result.folder.dir,"sig_noise_snr_plot_mean-4-5-6-7-8px_",bin.no,"bins_",location,"_",sensor,".png"), width = 1500, height =1500)
+  # print({sig.noise.snr.plot.mean})
+  # dev.off() # EMPTY
+})
+```
+
+
+```{r}
+```
