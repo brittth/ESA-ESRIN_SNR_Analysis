@@ -1,0 +1,121 @@
+---
+title: "SNR_Defective_Files"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# load packages
+library(raster)
+library(rgdal)
+library(stringr)
+library(ggplot2)
+library(reshape2)
+library(svglite)
+library(gridExtra)
+library(lemon)
+
+# List the required directories!
+req.files.dir <- c(
+  # "D:/FLEXsense/01_Italy_Coast/03_Airborne_data/201800607/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  #                  
+  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180718/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  #                  
+  #                  "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  #                  "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  #                  
+  #                  "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180702/01_APEX/02_TOC_Reflectance",
+                   # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
+                   # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,# defective
+  #                  
+                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
+                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Jülich",
+                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Selhausen",
+                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+                   "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,
+                   # 
+                   # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+                   # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+                   # 
+                   # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+                   # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+                   # 
+                   # "D:/FLEXsense/09_Switzerland_Greifensee/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"
+                   )
+req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+                   "E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")
+
+# create a list of required files including their paths
+for(dir.no in 1:length(req.files.dir)){
+  if (dir.no==1){
+    req.files <- list.files(req.files.dir[dir.no],recursive = TRUE, pattern ="bsq$|img$", full.name= TRUE)
+  }
+    req.files <-  append(req.files,list.files(req.files.dir[dir.no],recursive = TRUE, pattern ="bsq$|img$", full.name= TRUE))
+}
+req.files <- unique(req.files)# remove doubles (problem with APEX)
+
+# file subset -- for testing only
+# req.files <- req.files[[1]]
+# req.files <- req.files[-1]
+
+plot_subset <- function(stack){
+  r <- subset(s,layer.no)
+  
+  cat("\nFile",file.no,"of",length(req.files),"-- Layer",layer.no,"of",nlayers(s))
+  plot(r)
+  layer.no <- layer.no + 1
+}
+
+# load data
+for (file.no in 1:length(req.files)){
+  # tryCatch({ # skip defective files
+    
+    # extract information from file path
+    info <- unlist(strsplit(req.files[file.no], "/"), recursive = TRUE, use.names = TRUE)
+    location <- substring(info[3],4,nchar(info[3]))
+    data.type <- substring(info[4],4,nchar(info[4]))
+    date <- info[5]
+    sensor <- substring(info[6],4,nchar(info[6]))
+    product <- substring(info[7],4,nchar(info[7]))
+    if(str_detect(req.files[file.no],"04_Germany_CKA/03_Airborne_data/20180702/01_APEX")){
+      file.type <- NA
+      filename <- info[8]
+    }else{
+      file.type <- substring(info[8],4,nchar(info[8]))
+      filename <- info[9]
+    }
+    
+    s <- stack(req.files[file.no])
+    # cat("\nFile",file.no,"of",length(req.files)) # show progress
+    # if(sensor=="HyPlant_DUAL"){plotRGB(s,r=172,g=111,b=70, stretch="lin")}else{plotRGB(s,r=47,g=18,b=8, stretch="lin")}
+    
+    
+    # go through layers per image raster file
+    for (layer.no in 1:nlayers(s)) {
+      tryCatch({ # skip defective files
+      r <- subset(s,layer.no)
+      cat("\nFile",file.no,"of",length(req.files),"-- Layer",layer.no,"of",nlayers(s)) # show progress
+      # if(layer.no == 549){plot(r)}
+      plot(r)
+      
+      }, error=function(e){
+        cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!\n",filename,"\nLayer No.",layer.no,"\n")
+        # Append to the file
+        sink('defective_files_Germany_Selhausen_HyPlant.txt', append=TRUE)
+        cat("\nDefective file",file.no,"skipped!\n",filename,"\nLayer No.",layer.no,"\n")
+        sink() 
+        }) # skip defective layers
+      
+    }
+    
+    
+    
+  # }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!",filename,"\n")}) # skip defective files
+}
+```
+
+```{r}
+```
