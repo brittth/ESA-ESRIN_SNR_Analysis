@@ -1,9 +1,12 @@
 ---
 title: "SNR_Defective_Files"
-output: html_document
-editor_options: 
-  chunk_output_type: console
+author: "Britta Themann"
+date: "8 January 2020"
+output: word_document
 ---
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
 
 ```{r}
 # load packages
@@ -19,31 +22,30 @@ library(lemon)
 # List the required directories!
 req.files.dir <- c(
   # "D:/FLEXsense/01_Italy_Coast/03_Airborne_data/201800607/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-  #                  
-  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180718/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-  #                  "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
-  #                  
-  #                  "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-  #                  "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
-  #                  
-  #                  "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180702/01_APEX/02_TOC_Reflectance",
-                   # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
-                   # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,# defective
-  #                  
-                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
-                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Jülich",
-                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Selhausen",
-                   # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-                   "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,
-                   # 
-                   # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-                   # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
-                   # 
-                   # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
-                   # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
-                   # 
-                   # "D:/FLEXsense/09_Switzerland_Greifensee/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"
+  # "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180718/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/02_Italy_Grosseto/03_Airborne_data/20180730/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  # 
+  # "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/03_France_OHP/03_Airborne_data/20180710/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  # 
+  # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180702/01_APEX/02_TOC_Reflectance",
+  # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
+  # "D:/FLEXsense/04_Germany_CKA/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,# defective
+  # 
+  # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"#,
+  # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Jülich",
+  # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/05_APEX/02_TOC_reflectance/01_S3B_Selhausen",
+  # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic"#,
+  # 
+  # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/07_Spain_Majadas/03_Airborne_data/20180624/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  # 
+  # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
+  # "D:/FLEXsense/08_Switzerland_Laegeren/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/02_Mosaic",
+  # 
+  # "D:/FLEXsense/09_Switzerland_Greifensee/03_Airborne_data/20180713/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines"
                    )
 req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180702/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines",
                    "E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")

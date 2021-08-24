@@ -1,9 +1,12 @@
 ---
 title: "SNR"
-output: html_document
-editor_options: 
-  chunk_output_type: console
+author: "brittth"
+date: "4 February 2020"
+output: word_document
 ---
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
 
 # 0 Settings
 ```{r}
@@ -26,8 +29,7 @@ editor_options:
 # req.files.dir <- c("E:/FLEXsense/05_Germany_Selhausen/03_Airborne_data/20180802/01_HyPlant_DUAL/01_TOC_Reflectance/01_Single_lines")  #code takes about 6 days to run
 
 # Set your working directory containing a folder for exported files!
-# setwd('C:/Users/britta themann/Documents/SNR_Calculation/')
-setwd('C:/Users/Britta Themann/Documents/SNR_Calculation/')
+setwd('C:/Users/brittth/Documents/SNR_Calculation/')
 
 # Give name of intended export folder in the working directory!
 export.folder <- "export/"
@@ -79,7 +81,7 @@ library(foreach)
 ```{r}
 # function that defines what is done to each layer of each image file
 myfunc <- function(layer.no){
-  # tryCatch({ # skip defective layers # DOES NOT WORK INSTEAD OF FILE TRY CATCH
+  # tryCatch({ # skip defective layers
   r <- subset(s,layer.no)
         
     # get band and wavelength info
@@ -161,7 +163,7 @@ myfunc <- function(layer.no){
     # cat(b,"\nwavelength:",wl,"\nsignal mean:",signal.mean,"\nnoise mean:",noise.mean,"\nSNR:",snr,"\n\n")
     result <- data.frame("Location"=location,"Data.Type"=data.type,"Date"=date,"Sensor"=sensor,"Product"=product,"File.Type"=file.type, "File"=filename,
                           "Band"=b, "Wavelength"=wl, "Signal"= signal.mean, "Noise"= noise.mean, "SNR"=snr) # wavelength in nm
-  # }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!\n",filename,"\nLayer No.",layer.no,"\n")}) # skip defective layers # DOES NOT WORK INSTEAD OF FILE TRY CATCH
+  # }, error=function(e){cat("\nERROR :",conditionMessage(e),"\nDefective file",file.no,"skipped!\n",filename,"\nLayer No.",layer.no,"\n")}) # skip defective layers
 }
 ```
 
